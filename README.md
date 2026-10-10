@@ -149,8 +149,7 @@ OOB score ≈ test score → forest isn't overfitting. AUC matches LogReg
 3. **Add Input** → search "Telco Customer Churn" → add dataset
 4. **Run All**
 
-### Locally
-```bash
+
 git clone https://github.com/khan123kh/applied-ai-week2.git
 cd applied-ai-week2
 pip install pandas numpy scikit-learn matplotlib seaborn jupyter
@@ -190,7 +189,7 @@ jupyter notebook week2_churn_models.ipynb
     4.  **Risk Bands:** LOW / MEDIUM / HIGH with Action (Contact now / Monitor).
 
 #### How to Run Locally
-```bash
+
 pip install -r requirements.txt
 streamlit run app.py
 ## Week 4 - Final Report and Deployment
