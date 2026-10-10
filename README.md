@@ -161,12 +161,46 @@ jupyter notebook week2_churn_models.ipynb
 ## Week 3 - Optimization
 - To be added in Week 3
 - Notebook will be: `week3-optimization.ipynb`
+## week 3 and 4 works
+# Applied AI Project 1 - Churn Risk Advisor
 
+**Live Demo:** https://applied-ai-project1-churn-h4taotbpneuw5xy6e57fw.streamlit.app
+**Repository:** https://github.com/musa100179/applied-ai-project1-churn
+
+### Week 3 & Week 4 - Combined Work
+
+#### Week 3: Model Development
+- **Dataset:** Telco Customer Churn dataset
+- **Preprocessing:** Handled missing values, encoded categorical features (Contract, PaymentMethod, InternetService etc.), scaled numerical features.
+- **Model Used:** XGBClassifier
+- **Evaluation:** 
+    - CV AUC: 0.845
+    - Train/Test Split: 80/20
+    - Metrics: Precision, Recall, F1-Score
+- **Artifacts Saved:**
+    - `churn_model.joblib` - Final trained model
+    - `model_meta.json` - Feature list and threshold
+
+#### Week 4: Deployment (Streamlit App)
+- **App Name:** Churn Risk Advisor v1.0
+- **Features Implemented:**
+    1.  **One Customer Scoring:** Left panel se Tenure, Contract, Monthly Charges change karke live risk dekho.
+    2.  **Batch Scoring:** `sample_customers.csv` upload karke hazaron customers ka risk ek saath.
+    3.  **What would change the risk?:** Agar contract ko Two year kiya jaye ya Payment method change ho to risk kitna kam hoga, ye suggest karta hai.
+    4.  **Risk Bands:** LOW / MEDIUM / HIGH with Action (Contact now / Monitor).
+
+#### How to Run Locally
+```bash
+pip install -r requirements.txt
+streamlit run app.py
 ## Week 4 - Final Report and Deployment
 - To be added in Week 4
 
 ## Tech Stack
 Python, Pandas, NumPy, Matplotlib, Seaborn, Plotly, Scikit-learn
+
+##  APP Link
+https://applied-ai-project1-churn-h4taotbpneuwv5xy6e576w.streamlit.app/
 
 ## Author
 Muhammad Musa - Musa100179
