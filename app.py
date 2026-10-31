@@ -86,8 +86,8 @@ def _git_commit() -> str:
 
 
 @st.cache_resource(show_spinner="Loading model artifacts…")
-def load_artifacts(model_path: str = "artifacts/churn_model.joblib",
-                   meta_path: str = "artifacts/model_meta.json"):
+def load_artifacts(model_path: str = "churn_model.joblib",
+                   meta_path: str = "model_meta.json"):
     model = joblib.load(model_path)
     with open(meta_path) as f:
         meta = json.load(f)
