@@ -1,5 +1,5 @@
 # app.py — Churn Risk Advisor (MPhil / Research Edition)
-# Fixes applied: XGBoost categorical handling, root paths, plotly compatibility
+# Ultimate Fix: Dynamic feature matching for XGBoost to prevent mismatch errors.
 
 import json
 import hashlib
@@ -14,7 +14,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- Optional libraries (graceful fallback) ---------------------------------
+# --- Optional libraries ---
 try:
     import shap
     HAS_SHAP = True
@@ -23,10 +23,7 @@ except Exception:
 
 try:
     from sklearn.calibration import calibration_curve
-    from sklearn.metrics import (
-        roc_auc_score, brier_score_loss,
-        average_precision_score,
-    )
+    from sklearn.metrics import roc_auc_score, brier_score_loss, average_precision_score
     from sklearn.inspection import permutation_importance
     HAS_SK = True
 except Exception:
@@ -41,7 +38,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-APP_VERSION = "2.1-mphil-fixed"
+APP_VERSION = "2.2-mphil-ultimate"
 RAW_COLS = ['gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure',
             'PhoneService', 'MultipleLines', 'InternetService',
             'OnlineSecurity', 'OnlineBackup', 'DeviceProtection',
@@ -55,32 +52,25 @@ CATEGORICAL_COLS = ['gender', 'Partner', 'Dependents', 'PhoneService', 'Multiple
                     'TechSupport', 'StreamingTV', 'StreamingMovies', 'Contract', 
                     'PaperlessBilling', 'PaymentMethod']
 
-
 # -----------------------------------------------------------------------------
 # 1. Provenance & artifact loading (Paths fixed to root)
 # -----------------------------------------------------------------------------
 def _sha256(path: str) -> str:
     p = Path(path)
-    if not p.exists():
-        return "MISSING"
+    if not p.exists(): return "MISSING"
     h = hashlib.sha256()
     with p.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
+        for chunk in iter(lambda: f.read(8192), b""): h.update(chunk)
     return h.hexdigest()[:16]
 
 def _git_commit() -> str:
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
     except Exception:
         return "n/a"
 
 @st.cache_resource(show_spinner="Loading model artifacts…")
-def load_artifacts(model_path: str = "churn_model.joblib",
-                   meta_path: str = "model_meta.json"):
+def load_artifacts(model_path: str = "churn_model.joblib", meta_path: str = "model_meta.json"):
     model = joblib.load(model_path)
     with open(meta_path) as f:
         meta = json.load(f)
@@ -103,18 +93,45 @@ UPLIFT = float(meta.get("uplift", 0.15))
 
 
 # -----------------------------------------------------------------------------
-# 2. Scoring (Pipeline handles XGBoost categoricals)
+# 2. Dynamic Scoring (Fixes XGBoost Feature Mismatch)
 # -----------------------------------------------------------------------------
 def prepare_input(raw: pd.DataFrame) -> pd.DataFrame:
     df = raw[RAW_COLS].copy()
     df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce").fillna(0)
     
-    # XGBoost requires categorical columns to be explicitly typed
-    for col in CATEGORICAL_COLS:
-        if col in df.columns:
-            df[col] = df[col].astype('category')
+    # 1. Get the exact features the model expects
+    expected_features = None
+    if hasattr(model, "get_booster"):
+        expected_features = model.get_booster().feature_names
+    elif hasattr(model, "feature_names_in_"):
+        expected_features = model.feature_names_in_.tolist()
+    elif hasattr(model, "steps"):
+        try:
+            expected_features = model[:-1].get_feature_names_out().tolist()
+        except Exception:
+            pass
             
-    return df
+    if not expected_features:
+        expected_features = COLS
+
+    # 2. Check if the model expects one-hot encoded features (e.g., 'gender_Male')
+    if expected_features and any("_" in f for f in expected_features):
+        # Encode the raw columns dynamically
+        cat_cols_to_encode = [c for c in CATEGORICAL_COLS if c in df.columns]
+        df_encoded = pd.get_dummies(df, columns=cat_cols_to_encode, dtype=float)
+        
+        # Reindex to perfectly match model's expected features
+        df_final = df_encoded.reindex(columns=expected_features, fill_value=0)
+        return df_final
+    
+    # 3. If the model accepts native categoricals (recent XGBoost versions)
+    else:
+        for col in CATEGORICAL_COLS:
+            if col in df.columns:
+                df[col] = df[col].astype('category')
+        if expected_features:
+            df = df[expected_features]
+        return df
 
 def score(raw: pd.DataFrame) -> np.ndarray:
     return model.predict_proba(prepare_input(raw))[:, 1]
@@ -137,7 +154,6 @@ def score_with_uncertainty(raw: pd.DataFrame, n_boot: int = 200, seed: int = 42)
         "sd": float(draws.std()),
         "n_boot": n_boot,
     }
-
 
 # -----------------------------------------------------------------------------
 # 3. Decision theory & counterfactuals
@@ -181,7 +197,6 @@ def contrastive_counterfactuals(customer: pd.DataFrame, p_base: float, top_k: in
     if not rows: return pd.DataFrame()
     return pd.DataFrame(rows).sort_values("Δp").head(top_k)
 
-
 # -----------------------------------------------------------------------------
 # 4. Fairness
 # -----------------------------------------------------------------------------
@@ -212,7 +227,6 @@ def fairness_report(df: pd.DataFrame, thr: float, y_col: str | None = None):
         .reset_index()
     )
     return table, di
-
 
 # -----------------------------------------------------------------------------
 # 5. Sidebar
@@ -264,7 +278,6 @@ row = {
 for s in SERVICES:
     row[s] = ("No internet service" if internet == "No" else ("Yes" if s in services else "No"))
 customer = pd.DataFrame([row])
-
 
 # -----------------------------------------------------------------------------
 # 7. Header & Tabs
@@ -383,30 +396,21 @@ with tab_explain:
     st.write("Local and global explanations.")
     X_cust = prepare_input(customer)
     
-    # XGBoost feature importances
     st.subheader("Global Feature Importance (XGBoost)")
     if hasattr(model, "feature_importances_"):
-        # Check if model is a pipeline or direct XGBoost
         if hasattr(model, "steps"):
             clf = model[-1]
             if hasattr(clf, "feature_importances_"):
                 importances = clf.feature_importances_
-                # If pipeline has preprocessor, get names
-                try:
-                    feat_names = model[:-1].get_feature_names_out()
-                except:
-                    feat_names = COLS if len(COLS) == len(importances) else [f"f{i}" for i in range(len(importances))]
-            else:
-                importances, feat_names = [], []
+                try: feat_names = model[:-1].get_feature_names_out()
+                except: feat_names = [f"f{i}" for i in range(len(importances))]
+            else: importances, feat_names = [], []
         else:
             importances = model.feature_importances_
-            # For XGBoost trained directly on categories
             if hasattr(model, "get_booster"):
                 feat_names = model.get_booster().feature_names
-                if not feat_names:
-                    feat_names = COLS
-            else:
-                feat_names = COLS
+                if not feat_names: feat_names = [f"f{i}" for i in range(len(importances))]
+            else: feat_names = [f"f{i}" for i in range(len(importances))]
         
         if len(importances) > 0:
             imp_df = pd.DataFrame({"Feature": feat_names, "Importance": importances})
@@ -421,14 +425,12 @@ with tab_explain:
     st.subheader("SHAP (local)")
     if HAS_SHAP:
         try:
-            X_t = prepare_input(customer)
             explainer = shap.TreeExplainer(model)
-            sv = explainer(X_t)
-            # Handle XGBoost SHAP output format
+            sv = explainer(X_cust)
             vals = sv.values[0]
-            if len(vals.shape) > 1: vals = vals[:, 1] # For binary classification
+            if len(vals.shape) > 1: vals = vals[:, 1] 
             
-            shap_df = pd.DataFrame({"Feature": X_t.columns, "SHAP Value": vals})
+            shap_df = pd.DataFrame({"Feature": X_cust.columns, "SHAP Value": vals})
             shap_df = shap_df.reindex(shap_df["SHAP Value"].abs().sort_values(ascending=False).index).head(12)
             fig = px.bar(shap_df.sort_values("SHAP Value"), x="SHAP Value", y="Feature", orientation="h")
             st.plotly_chart(fig, use_container_width=True)
