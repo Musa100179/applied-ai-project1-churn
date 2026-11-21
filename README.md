@@ -201,5 +201,15 @@ Python, Pandas, NumPy, Matplotlib, Seaborn, Plotly, Scikit-learn
 ##  APP Link
 https://applied-ai-project1-churn-h4taotbpneuwv5xy6e576w.streamlit.app/
 
+
+## Week 6: Pneumonia Detection with SimpleCNN
+**Who benefits:** Doctors in rural clinics. **Why it matters:** Early detection of pneumonia saves lives.
+**Dataset:** Chest X-Ray Images (Pneumonia) by Paul Mooney (Kaggle). 5,216 images, 2 classes.
+**Data audit:** Imbalance ratio 2.9x; exact duplicates 62; test near-duplicates 0; split by patient ID (0 shared groups).
+**Imbalance handling:** Weighted loss used (NORMAL weight: 1.935, PNEUMONIA weight: 0.674).
+**Results (test, used once):** Macro-F1 0.683. Binary: Sensitivity 0.982 and Specificity 0.406 at threshold 0.612.
+**Grad-CAM:** The model looks at the lung fields. Shortcut risk checked: No border text or markers were highlighted.
+**Limitations:** Trained on CPU without pretrained weights, so specificity is low. Not for clinical diagnosis without doctor review.
+
 ## Author
 Muhammad Musa - Musa100179
