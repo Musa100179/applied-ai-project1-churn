@@ -210,6 +210,7 @@ https://applied-ai-project1-churn-h4taotbpneuwv5xy6e576w.streamlit.app/
 **Results (test, used once):** Macro-F1 0.683. Binary: Sensitivity 0.982 and Specificity 0.406 at threshold 0.612.
 **Grad-CAM:** The model looks at the lung fields. Shortcut risk checked: No border text or markers were highlighted.
 **Limitations:** Trained on CPU without pretrained weights, so specificity is low. Not for clinical diagnosis without doctor review.
-
+## App link
+https://pneumonia-detection-app-bqidbdanrexv4l9kcguxhu.streamlit.app/
 ## Author
 Muhammad Musa - Musa100179
